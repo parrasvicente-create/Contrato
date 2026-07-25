@@ -1,13 +1,12 @@
 // ─────────────────────────────────────────────────────────────────────────
 // Resguardo — esquema de base de datos
 //
-// Motor: SQLite en desarrollo. Diseñado para migrar a PostgreSQL sin cambios
-// de modelo (solo cambia el datasource y DATABASE_URL).
+// Motor: PostgreSQL (Supabase). `url` usa el pooler (para la app) y
+// `directUrl` la conexión directa (para migraciones).
 //
-// Nota: SQLite no soporta `enum` de Prisma, por eso los estados se guardan
-// como String. Los valores permitidos se validan en la capa de aplicación
-// con zod (ver src/lib/domain.ts). Al migrar a Postgres se pueden convertir
-// a enums reales.
+// Nota histórica: los estados se guardan como String (herencia de SQLite,
+// que no soporta enums). Se validan en la capa de aplicación con zod
+// (ver src/lib/domain.ts). Podrían convertirse a enums reales de Postgres.
 // ─────────────────────────────────────────────────────────────────────────
 
 generator client {
@@ -15,8 +14,9 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // Cuenta de usuario. OPCIONAL: las partes gratuitas no requieren cuenta.

@@ -1,0 +1,108 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    /* Scroll suave al saltar entre secciones del informe. */
+    scroll-behavior: smooth;
+    /* Evita que Safari/iOS reescale el texto al girar el dispositivo. */
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-hueso text-tinta-800 antialiased;
+    /* Red de seguridad: nada debe provocar scroll horizontal en la página. */
+    overflow-x: hidden;
+  }
+
+  /* Los títulos van en serif por defecto: es lo que da el peso documental. */
+  h1,
+  h2,
+  h3 {
+    @apply font-serif;
+    /* Los títulos largos (nombres, epígrafes) nunca desbordan su contenedor. */
+    overflow-wrap: break-word;
+  }
+
+  /* El texto en general quiebra palabras largas antes de salirse. */
+  p,
+  li,
+  dd,
+  blockquote {
+    overflow-wrap: break-word;
+  }
+
+  /* Foco visible y coherente en toda la app (accesibilidad por teclado). */
+  :focus-visible {
+    @apply outline-none ring-2 ring-dorado-400 ring-offset-2 ring-offset-hueso;
+  }
+}
+
+@layer components {
+  /* Etiqueta en versalitas: usada en antetítulos y metadatos. */
+  .versalita {
+    @apply text-xs font-semibold uppercase tracking-versalita;
+  }
+
+  /* Regla dorada corta bajo los títulos principales. */
+  .regla-dorada::after {
+    content: "";
+    @apply mt-4 block h-px w-16 bg-dorado-500;
+  }
+
+  /* Superficie de documento: usada en la vista previa y el informe. */
+  .superficie-documento {
+    @apply rounded-lg border border-tinta-100 bg-papel shadow-sutil;
+  }
+
+  /* Compensa el alto del índice fijo al saltar a una sección. */
+  .scroll-anchor {
+    scroll-margin-top: 4rem;
+  }
+
+  /* Oculta la barra de scroll de las tiras horizontales (chips del índice). */
+  .no-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* ── Barra de progreso indeterminada del informe ───────────────────────── */
+@keyframes report-progress {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(320%);
+  }
+}
+.report-progress {
+  animation: report-progress 1.4s ease-in-out infinite;
+}
+
+/* ── Marca de agua de la vista previa del contrato ─────────────────────── */
+.watermark {
+  position: relative;
+  overflow: hidden;
+}
+.watermark::after {
+  content: "VISTA PREVIA";
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-size: clamp(2rem, 8vw, 4.5rem);
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  color: rgb(15 41 66 / 0.07);
+  transform: rotate(-30deg);
+  pointer-events: none;
+  user-select: none;
+  white-space: nowrap;
+}

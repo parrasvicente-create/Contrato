@@ -1,0 +1,118 @@
+// ─────────────────────────────────────────────────────────────────────────
+// Resguardo — esquema de base de datos
+//
+// Motor: SQLite en desarrollo. Diseñado para migrar a PostgreSQL sin cambios
+// de modelo (solo cambia el datasource y DATABASE_URL).
+//
+// Nota: SQLite no soporta `enum` de Prisma, por eso los estados se guardan
+// como String. Los valores permitidos se validan en la capa de aplicación
+// con zod (ver src/lib/domain.ts). Al migrar a Postgres se pueden convertir
+// a enums reales.
+// ─────────────────────────────────────────────────────────────────────────
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Cuenta de usuario. OPCIONAL: las partes gratuitas no requieren cuenta.
+// Sirve para guardar historial de operaciones. Preparado para ampliar más
+// adelante (firma electrónica Ley 19.799, etc.).
+model User {
+  id         String      @id @default(cuid())
+  email      String      @unique
+  name       String?
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  operations Operation[]
+}
+
+// Una "operación" representa un uso del sistema: GENERAR o REVISAR un
+// contrato. Persiste todo lo necesario para auditar y reconstruir el flujo.
+model Operation {
+  id String @id @default(cuid())
+
+  // "GENERATE" | "REVIEW"  (ver OperationKind en src/lib/domain.ts)
+  kind String
+
+  // Slug del tipo de contrato en la base de conocimiento
+  // (p.ej. "arriendo-vivienda"). En REVIEW puede ser null si aún no se detecta.
+  contractTypeId String?
+
+  // "DRAFT" | "PREVIEW" | "PAID" | "COMPLETED"  (ver OperationStatus)
+  status String @default("DRAFT")
+
+  // ── Datos del módulo GENERAR ──────────────────────────────────────────
+  // Respuestas del cuestionario, serializadas como JSON.
+  answers String?
+
+  // ── Datos del módulo REVISAR ──────────────────────────────────────────
+  // Texto extraído del documento subido.
+  sourceText String?
+  // Nombre original del archivo subido (si aplica).
+  sourceFilename String?
+  // Tipo de contrato detectado por IA ("arriendo-vivienda", "generico", ...).
+  detectedType String?
+  // Parte desde la que se pidió el análisis (p.ej. "arrendatario").
+  // Null = análisis neutral. Solo aplica a REVIEW.
+  perspective String?
+  // Industria del contrato (input opcional del usuario). Solo REVIEW.
+  industria String?
+  // Contexto adicional / notas (input opcional del usuario). Solo REVIEW.
+  notas String?
+  // Resumen gratuito en lenguaje simple, serializado como JSON.
+  freeSummary String?
+  // Informe completo (cláusula por cláusula), serializado como JSON.
+  // Solo se rellena tras el pago.
+  fullReport String?
+  // Estado de la generación del informe (que corre en segundo plano tras el
+  // pago): "PENDING" | "GENERATING" | "READY" | "ERROR". Ver ReportStatus.
+  reportStatus String?
+  // Mensaje de error de la última generación fallida, para mostrarlo y reintentar.
+  reportError String?
+
+  // Precio aplicado (CLP), como snapshot al momento de la operación.
+  amountClp Int?
+
+  // Relaciones
+  order  Order?
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([kind])
+  @@index([status])
+  @@index([contractTypeId])
+}
+
+// Orden de pago asociada a una operación. Arquitectura de proveedor
+// intercambiable: `provider` guarda cuál se usó ("simulado", "flow", "webpay").
+model Order {
+  id          String    @id @default(cuid())
+  operationId String    @unique
+  operation   Operation @relation(fields: [operationId], references: [id], onDelete: Cascade)
+
+  // "simulado" | "flow" | "webpay"
+  provider String @default("simulado")
+
+  // Identificador de la transacción en el proveedor externo (token Flow,
+  // buyOrder Webpay, etc.). Null en el proveedor simulado.
+  providerRef String?
+
+  amountClp Int
+
+  // "PENDING" | "PAID" | "FAILED"  (ver PaymentStatus en src/lib/domain.ts)
+  status String @default("PENDING")
+
+  paidAt    DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([status])
+}

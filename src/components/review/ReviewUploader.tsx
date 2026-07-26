@@ -317,7 +317,13 @@ export function ReviewUploader() {
       >
         {state.phase === "loading" ? "Analizando el contrato…" : "Analizar gratis"}
       </button>
-      <p className="text-center text-xs text-tinta-400">Gratis y sin crear cuenta. Te explicamos a qué te comprometes.</p>
+      {state.phase === "loading" ? (
+        <p className="text-center text-xs text-tinta-400">
+          Si tu PDF es escaneado, lo leemos con OCR y puede tardar un poco más.
+        </p>
+      ) : (
+        <p className="text-center text-xs text-tinta-400">Gratis y sin crear cuenta. Te explicamos a qué te comprometes.</p>
+      )}
     </div>
   );
 }

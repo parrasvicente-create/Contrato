@@ -4,12 +4,14 @@ import { OperationKind, OperationStatus } from "@/lib/domain";
 import {
   ExtractionError,
   MAX_UPLOAD_BYTES,
+  detectFormat,
   extractText,
   normalizeText,
 } from "@/lib/extraction";
 import { classifyContract } from "@/lib/ai/detect";
 import { buildFreeSummary } from "@/lib/ai/summary";
-import { AiError } from "@/lib/ai/client";
+import { AiError, isAiConfigured } from "@/lib/ai/client";
+import { ocrPdf } from "@/lib/ai/ocr";
 import { REVIEW_PRICE_CLP, categoryLabel } from "@/lib/ai/categories";
 
 // POST /api/review
@@ -60,13 +62,41 @@ export async function POST(request: Request) {
       text = extracted.text;
       sourceFilename = file.name;
     } catch (err) {
-      if (err instanceof ExtractionError) {
+      if (!(err instanceof ExtractionError)) throw err;
+
+      // PDF escaneado (sin capa de texto): en vez de rendirnos, lo leemos con
+      // la visión de Claude (OCR) y seguimos con el pipeline normal.
+      const isScannedPdf =
+        err.code === "EMPTY_TEXT" &&
+        detectFormat(file.name, file.type) === "pdf";
+
+      if (isScannedPdf && isAiConfigured()) {
+        try {
+          const ocrText = normalizeText(await ocrPdf(buffer));
+          if (ocrText.length < 50) {
+            return NextResponse.json(
+              { error: err.message, code: err.code },
+              { status: 422 },
+            );
+          }
+          text = ocrText;
+          sourceFilename = file.name;
+        } catch {
+          return NextResponse.json(
+            {
+              error:
+                "No pudimos leer el PDF escaneado. Prueba con un archivo más nítido o pega el texto.",
+              code: "OCR_FAILED",
+            },
+            { status: 422 },
+          );
+        }
+      } else {
         return NextResponse.json(
           { error: err.message, code: err.code },
           { status: 422 },
         );
       }
-      throw err;
     }
   } else if (typeof pastedText === "string" && pastedText.trim().length > 0) {
     text = normalizeText(pastedText);

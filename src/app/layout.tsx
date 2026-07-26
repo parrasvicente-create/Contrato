@@ -35,7 +35,7 @@ export default function RootLayout({
     <html lang="es-CL" className={`${serif.variable} ${sans.variable}`}>
       <body className="flex min-h-screen flex-col font-sans">
         <header className="border-b border-tinta-800 bg-tinta-800 text-tinta-50">
-          <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-3.5 sm:px-6">
+          <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-3.5 sm:px-6">
             <Link href="/" className="group flex shrink-0 items-center gap-2.5">
               {/* Marca: barra dorada + nombre en serif */}
               <span className="h-6 w-1 rounded-sm bg-dorado-500" aria-hidden />
@@ -51,12 +51,12 @@ export default function RootLayout({
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8 sm:px-6 sm:py-10">
+        <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6 sm:py-10">
           {children}
         </main>
 
         <footer className="mt-8 border-t border-tinta-100 bg-papel">
-          <div className="mx-auto flex max-w-5xl flex-col gap-2 px-4 py-6 text-xs text-tinta-400 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+          <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-6 text-xs text-tinta-400 sm:flex-row sm:items-center sm:justify-between sm:px-6">
             <p>
               © {new Date().getFullYear()} {APP_NAME}
             </p>

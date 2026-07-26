@@ -217,8 +217,8 @@ export function Wizard({ contract }: WizardProps) {
   ];
 
   return (
-    <div className="lg:grid lg:grid-cols-2 lg:items-start lg:gap-10">
-      {/* ── Columna: formulario ─────────────────────────────────────────── */}
+    <div className="lg:grid lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] lg:items-start lg:gap-8 xl:gap-12">
+      {/* ── Columna: formulario (más ancha) ─────────────────────────────── */}
       <div className="space-y-6">
         {/* Progreso: índice de pasos clicable + barra */}
         <nav aria-label="Progreso">
@@ -382,10 +382,17 @@ export function Wizard({ contract }: WizardProps) {
 
       {/* ── Columna: vista previa en vivo (escritorio) ──────────────────── */}
       <aside className="hidden lg:sticky lg:top-6 lg:block lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto lg:pb-4">
-        <div className="mb-3 flex items-baseline justify-between">
+        <div className="mb-2 flex items-baseline justify-between gap-3">
           <p className="versalita text-dorado-600">Vista previa en vivo</p>
           <p className="text-xs text-tinta-400">Se actualiza al escribir</p>
         </div>
+        <p className="mb-3 text-xs text-tinta-500">
+          Lo marcado como{" "}
+          <span className="rounded-sm bg-dorado-100 px-1 text-dorado-700">
+            por completar
+          </span>{" "}
+          se rellena con tus respuestas.
+        </p>
         <ContractPreview title={contract.name} clauses={clauses} />
       </aside>
     </div>

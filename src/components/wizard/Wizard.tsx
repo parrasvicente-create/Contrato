@@ -4,8 +4,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { ContractType } from "@/lib/knowledge-base";
 import {
   assembleContract,
+  checkHardRules,
   validateStep,
   validateField,
+  visibleFields,
   type Answers,
 } from "@/lib/knowledge-base";
 import { formatClp } from "@/lib/format";
@@ -16,7 +18,14 @@ import { ContractPreview } from "./ContractPreview";
 // reglas de riesgo: pertenecen al módulo revisor y no se envían al cliente.
 export type WizardContract = Pick<
   ContractType,
-  "id" | "name" | "description" | "generationPriceClp" | "steps" | "clauses"
+  | "id"
+  | "name"
+  | "description"
+  | "generationPriceClp"
+  | "steps"
+  | "clauses"
+  | "hardRules"
+  | "designGuarantees"
 >;
 
 interface WizardProps {
@@ -62,6 +71,18 @@ export function Wizard({ contract }: WizardProps) {
   // El contrato se arma en vivo: la vista previa refleja lo escrito al instante.
   const clauses = useMemo(
     () => assembleContract(contract, answers),
+    [contract, answers],
+  );
+
+  // Campos visibles del paso actual (respeta la visibilidad condicional).
+  const shownFields = useMemo(
+    () => (currentStep ? visibleFields(currentStep.fields, answers) : []),
+    [currentStep, answers],
+  );
+
+  // Reglas duras infringidas: bloquean el pago hasta corregirlas.
+  const violations = useMemo(
+    () => checkHardRules(contract, answers),
     [contract, answers],
   );
 
@@ -284,7 +305,7 @@ export function Wizard({ contract }: WizardProps) {
               </p>
             )}
             <div ref={fieldsRef} className="mt-6 grid gap-5 sm:grid-cols-2">
-              {currentStep.fields.map((field) => (
+              {shownFields.map((field) => (
                 <div
                   key={field.name}
                   className={
@@ -322,6 +343,42 @@ export function Wizard({ contract }: WizardProps) {
                 .
               </p>
             </div>
+            {/* Reglas duras infringidas: bloquean el pago. */}
+            {violations.length > 0 && (
+              <div className="border-l-2 border-riesgo-critico bg-riesgo-criticoSuave px-4 py-3">
+                <p className="text-sm font-semibold text-riesgo-critico">
+                  Hay que corregir esto antes de continuar
+                </p>
+                <ul className="mt-1.5 space-y-1.5">
+                  {violations.map((v) => (
+                    <li key={v.id} className="text-sm text-riesgo-critico">
+                      {v.message}{" "}
+                      <span className="text-riesgo-critico/70">({v.legalBasis})</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Garantías legales que el contrato cumple por diseño. */}
+            {violations.length === 0 &&
+              contract.designGuarantees &&
+              contract.designGuarantees.length > 0 && (
+                <details className="group rounded border border-tinta-100 bg-papel">
+                  <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-medium text-tinta-700">
+                    <span>✓ Este contrato respeta {contract.designGuarantees.length} límites legales</span>
+                    <span className="text-tinta-400 transition group-open:rotate-180" aria-hidden>
+                      ▾
+                    </span>
+                  </summary>
+                  <ul className="space-y-1.5 border-t border-tinta-100 px-4 py-3 text-xs leading-relaxed text-tinta-600">
+                    {contract.designGuarantees.map((g, i) => (
+                      <li key={i}>{g}</li>
+                    ))}
+                  </ul>
+                </details>
+              )}
+
             {generation.phase === "error" && (
               <p className="border-l-2 border-riesgo-critico bg-riesgo-criticoSuave px-4 py-3 text-sm text-riesgo-critico">
                 {generation.message}
@@ -361,7 +418,12 @@ export function Wizard({ contract }: WizardProps) {
             <button
               type="button"
               onClick={handleContinueToPayment}
-              disabled={generation.phase === "saving"}
+              disabled={generation.phase === "saving" || violations.length > 0}
+              title={
+                violations.length > 0
+                  ? "Corrige las observaciones legales para continuar"
+                  : undefined
+              }
               className="rounded bg-tinta-800 px-4 py-3 text-sm font-semibold text-white transition hover:bg-tinta-700 disabled:opacity-50 sm:px-6"
             >
               {generation.phase === "saving"

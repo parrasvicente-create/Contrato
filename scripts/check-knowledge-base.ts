@@ -15,8 +15,9 @@
 import { contractTypes } from "../src/lib/knowledge-base";
 import {
   assembleContract,
-  buildAnswersSchema,
+  checkHardRules,
   evalCondition,
+  validateAnswers,
   type Answers,
 } from "../src/lib/knowledge-base/engine";
 import { isValidRut } from "../src/lib/rut";
@@ -25,25 +26,78 @@ import { formatDate } from "../src/lib/format";
 // Datos de ejemplo realistas por tipo de contrato.
 const samples: Record<string, Answers> = {
   "arriendo-vivienda": {
+    contrato_ciudad: "Santiago",
+    contrato_fecha: "2026-08-01",
+    arrendador_naturaleza: "natural",
     arrendador_nombre: "María Elena Soto Fuentes",
+    arrendador_nacionalidad: "chilena",
     arrendador_rut: "12.345.678-5",
-    arrendador_domicilio: "Av. Providencia 1234, depto 56, Providencia, Santiago",
+    arrendador_domicilio: "Av. Providencia 1234, depto 56",
+    arrendador_comuna: "Providencia",
+    arrendador_email: "maria@correo.cl",
+    arrendatario_naturaleza: "natural",
     arrendatario_nombre: "Juan Andrés Pérez Rojas",
+    arrendatario_nacionalidad: "chilena",
     arrendatario_rut: "9.876.543-3",
-    arrendatario_domicilio: "Calle Los Olmos 789, Ñuñoa, Santiago",
-    inmueble_direccion: "Av. Irarrázaval 4560, depto 302, Ñuñoa, Santiago",
-    inmueble_rol: "1234-56",
+    arrendatario_domicilio: "Calle Los Olmos 789",
+    arrendatario_comuna: "Ñuñoa",
+    arrendatario_email: "juan@correo.cl",
+    titulo_calidad: "dueno",
+    titulo_modo_adquisicion: "compraventa",
+    titulo_fojas: "12345",
+    titulo_numero: "6789",
+    titulo_anio: "2019",
+    titulo_conservador: "Santiago",
+    aval_existe: true,
+    aval_nombre: "Ana Díaz Soto",
+    aval_rut: "11.111.111-1",
+    aval_nacionalidad: "chilena",
+    aval_domicilio: "Calle El Roble 12",
+    inmueble_tipo: "departamento",
+    inmueble_direccion: "Av. Irarrázaval 4560",
+    inmueble_numero_unidad: "302",
+    inmueble_comuna: "Ñuñoa",
+    inmueble_region: "Región Metropolitana",
+    inmueble_rol_sii: "1234-56",
+    inmueble_en_copropiedad: true,
     inmueble_amoblado: true,
-    renta_mensual: 450000,
-    dia_pago: 5,
-    garantia_meses: 2, // dispara la regla "garantía superior a un mes"
-    fecha_inicio: "2026-08-01",
-    plazo_meses: 12,
-    renovacion_automatica: true,
-    incluye_reajuste: true,
-    reajuste_indice: "UF",
-    prohibe_subarriendo: true,
-    permite_mascotas: false,
+    destino_uso: "habitacional",
+    plazo_modalidad: "fijo_renovable",
+    plazo_fecha_inicio: "2026-08-01",
+    plazo_duracion_meses: 12,
+    plazo_fecha_termino: "2027-07-31",
+    plazo_periodo_renovacion_meses: 12,
+    plazo_aviso_no_renovacion_dias: 60,
+    renta_moneda: "CLP",
+    renta_monto_clp: 450000,
+    renta_dia_pago: 5,
+    renta_medio_pago: "transferencia electrónica",
+    renta_cuenta_banco: "Banco de Chile",
+    renta_cuenta_tipo: "corriente",
+    renta_cuenta_numero: "00012345678",
+    renta_cuenta_titular: "María Elena Soto Fuentes",
+    renta_cuenta_rut: "12.345.678-5",
+    renta_reajuste_aplica: true,
+    renta_reajuste_frecuencia: "anual",
+    renta_mora_interes: "corriente",
+    garantia_aplica: true,
+    garantia_rentas: 1,
+    garantia_plazo_restitucion_dias: 30,
+    gastos_comunes: "Arrendatario",
+    gastos_contribuciones: "Arrendador",
+    uso_subarriendo: "prohibido",
+    uso_mascotas: "permitidas_con_condiciones",
+    uso_mascotas_condiciones: "un perro de raza pequeña",
+    uso_fumar: "prohibido",
+    inspeccion_aviso_horas: 48,
+    terminacion_aviso_previo_dias: 60,
+    terminacion_multa_rentas: 1,
+    restitucion_recargo_pct: 50,
+    entrega_hay_acta: true,
+    entrega_fecha: "2026-08-01",
+    entrega_llaves: 2,
+    firma_modalidad: "notarial",
+    firma_ejemplares: 3,
   },
   "prestacion-servicios": {
     prestador_nombre: "Camila Rojas Vega",
@@ -91,13 +145,16 @@ for (const contract of contractTypes) {
     check(isValidRut(String(answers[f])), `RUT válido en ${f}: ${answers[f]}`);
   }
 
-  // 2. Validación zod
-  const schema = buildAnswersSchema(contract);
-  const result = schema.safeParse(answers);
-  check(result.success, "las respuestas pasan la validación zod");
-  if (!result.success) {
-    console.log("    → errores:", JSON.stringify(result.error.format(), null, 2));
+  // 2. Validación (respetando visibilidad condicional)
+  const errs = validateAnswers(contract, answers);
+  check(Object.keys(errs).length === 0, "las respuestas pasan la validación");
+  if (Object.keys(errs).length > 0) {
+    console.log("    → errores:", JSON.stringify(errs, null, 2));
   }
+
+  // 2-bis. Reglas duras: la config de ejemplo no debe infringir ninguna.
+  const violations = checkHardRules(contract, answers);
+  check(violations.length === 0, "no infringe reglas duras");
 
   // 3. Ensamblado + condiciones
   const clauses = assembleContract(contract, answers);
@@ -106,9 +163,12 @@ for (const contract of contractTypes) {
   // Verificación puntual de condiciones esperadas
   const ids = new Set(clauses.map((c) => c.id));
   if (contract.id === "arriendo-vivienda") {
-    check(ids.has("inmueble-amoblado"), "cláusula de mobiliario incluida (amoblado = sí)");
-    check(ids.has("reajuste"), "cláusula de reajuste incluida (incluye_reajuste = sí)");
-    check(!ids.has("mascotas"), "cláusula de mascotas OMITIDA (permite_mascotas = no)");
+    check(ids.has("codeudor"), "cláusula de codeudor incluida (aval_existe = sí)");
+    check(ids.has("garantia"), "cláusula de garantía incluida (garantia_aplica = sí)");
+    check(ids.has("titulo") && ids.has("firmas"), "cláusulas de título y firmas presentes");
+    const full = clauses.map((c) => `${c.heading}\n${c.text}`).join("\n");
+    check(full.includes("un perro de raza pequeña"), "condicional inline de mascotas aplicado");
+    check(full.includes("$450.000"), "renta en CLP formateada");
   }
   if (contract.id === "prestacion-servicios") {
     check(ids.has("confidencialidad"), "cláusula de confidencialidad incluida");

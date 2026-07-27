@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { buildAnswersSchema, getContractType } from "@/lib/knowledge-base";
+import {
+  checkHardRules,
+  getContractType,
+  validateAnswers,
+} from "@/lib/knowledge-base";
 import { OperationKind, OperationStatus } from "@/lib/domain";
 
 // POST /api/operations
@@ -39,13 +43,27 @@ export async function POST(request: Request) {
     );
   }
 
-  // Revalidación de las respuestas contra el cuestionario del contrato.
-  const answersResult = buildAnswersSchema(contract).safeParse(answers);
-  if (!answersResult.success) {
+  // Revalidación de las respuestas (respetando la visibilidad condicional):
+  // nunca confiamos en el cliente.
+  const fieldErrors = validateAnswers(contract, answers);
+  if (Object.keys(fieldErrors).length > 0) {
     return NextResponse.json(
       {
         error: "Hay datos del formulario que no son válidos.",
-        detalles: answersResult.error.flatten().fieldErrors,
+        detalles: fieldErrors,
+      },
+      { status: 422 },
+    );
+  }
+
+  // Reglas duras: límites legales que bloquean la generación.
+  const violations = checkHardRules(contract, answers);
+  if (violations.length > 0) {
+    return NextResponse.json(
+      {
+        error: violations[0].message,
+        code: "HARD_RULE",
+        reglas: violations,
       },
       { status: 422 },
     );

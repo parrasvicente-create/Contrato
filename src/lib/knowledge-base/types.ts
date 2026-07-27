@@ -60,6 +60,12 @@ export interface QuestionField {
   /** Valor por defecto. */
   defaultValue?: string | number | boolean;
   validation?: FieldValidation;
+  /**
+   * Visibilidad condicional: si está presente, el campo solo se muestra (y solo
+   * se valida) cuando la condición es verdadera. Ej: "fecha de término" solo si
+   * el plazo no es mes a mes. Se evalúa igual que las condiciones de cláusula.
+   */
+  visibleIf?: Condition;
 }
 
 /** Un paso del wizard: agrupa campos relacionados. */
@@ -109,6 +115,31 @@ export interface ClauseBlock {
    * el wizard (paso "cláusulas opcionales"). Suele ir junto a un campo boolean.
    */
   optional?: boolean;
+}
+
+// ── (c-bis) REGLAS DURAS DEL GENERADOR ────────────────────────────────────
+
+/**
+ * Regla dura: límite LEGAL que el generador no puede cruzar. A diferencia de
+ * las validaciones de campo (min/max), mira varios campos a la vez y, si la
+ * configuración la infringe, BLOQUEA la generación (no solo advierte).
+ *
+ * Muchas reglas del arriendo (irrenunciabilidad, prohibición de autotutela,
+ * garantía que no es renta anticipada, competencia del tribunal) se cumplen
+ * "por diseño": el motor simplemente nunca emite ese texto. Esas se listan en
+ * `designGuarantees`. Las que SÍ dependen de lo que el usuario configura
+ * (p.ej. el tope de la cláusula penal) se modelan aquí.
+ */
+export interface HardRule {
+  /** Identificador estable, p.ej. "R4". */
+  id: string;
+  title: string;
+  /** Fundamento normativo, p.ej. "Art. 1544 CC". */
+  legalBasis: string;
+  /** Condición que, si es VERDADERA, significa que la config es ilegal. */
+  violatedWhen: Condition;
+  /** Mensaje mostrado al usuario cuando se bloquea. */
+  message: string;
 }
 
 // ── (d) REGLAS DE RIESGO ──────────────────────────────────────────────────
@@ -163,6 +194,19 @@ export interface ContractType {
 
   /** Cláusulas que arman el documento generado. */
   clauses: ClauseBlock[];
+
+  /**
+   * Reglas duras (límites legales que bloquean la generación). Se evalúan en el
+   * wizard y se revalidan en el servidor.
+   */
+  hardRules?: HardRule[];
+
+  /**
+   * Garantías que el contrato cumple "por diseño": límites legales que el motor
+   * respeta siempre porque nunca genera el texto contrario. Se muestran como
+   * tranquilidad al usuario en la revisión.
+   */
+  designGuarantees?: string[];
 
   /** Reglas de riesgo aplicadas por el revisor. */
   riskRules: RiskRule[];

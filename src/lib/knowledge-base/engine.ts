@@ -89,15 +89,8 @@ function formatValue(value: unknown, type?: FieldType): string {
   }
 }
 
-/**
- * Reemplaza los placeholders de un texto. Sintaxis soportada:
- *   {{campo}}            → valor tal cual (o formateado según el tipo del campo)
- *   {{campo:money_clp}}  → fuerza un formato específico
- *
- * Si el placeholder trae tipo explícito, se usa ese; si no, se toma el tipo
- * declarado del campo en el cuestionario.
- */
-export function renderTemplate(
+/** Sustituye solo los placeholders `{{campo}}` / `{{campo:tipo}}` de un texto. */
+function substitutePlaceholders(
   text: string,
   answers: Answers,
   fieldTypes: Record<string, FieldType>,
@@ -106,6 +99,106 @@ export function renderTemplate(
     const type = (explicitType as FieldType) ?? fieldTypes[name];
     return formatValue(answers[name], type);
   });
+}
+
+// ── Condicionales inline dentro de una cláusula ───────────────────────────
+// Un mini-motor de plantillas (sin `eval`) para que el texto de una cláusula
+// se adapte solo. Sintaxis soportada:
+//   {{#if campo}} … {{/if}}                     (verdadero si el campo es truthy)
+//   {{#unless campo}} … {{/unless}}             (verdadero si es falsy)
+//   {{#eq campo "valor"}} … {{/eq}}             (verdadero si campo === "valor")
+//   … {{else}} …                                (rama alternativa, en los tres)
+// Se pueden anidar. Todo lo demás es texto con placeholders normales.
+
+type TplNode =
+  | { t: "text"; text: string }
+  | {
+      t: "block";
+      kind: "if" | "unless" | "eq";
+      field: string;
+      value?: string;
+      cons: TplNode[];
+      alt: TplNode[];
+    };
+
+const CONTROL_RE =
+  /\{\{\s*(#if|#unless|#eq|else|\/if|\/unless|\/eq)\b\s*([\w.]+)?\s*(?:"([^"]*)")?\s*\}\}/g;
+
+/** Convierte un texto con controles en un árbol de nodos. */
+function parseTemplate(text: string): TplNode[] {
+  const root: TplNode[] = [];
+  const stack: Array<{ node: Extract<TplNode, { t: "block" }>; inElse: boolean }> = [];
+  const current = () => {
+    if (stack.length === 0) return root;
+    const top = stack[stack.length - 1];
+    return top.inElse ? top.node.alt : top.node.cons;
+  };
+
+  let last = 0;
+  for (let m = CONTROL_RE.exec(text); m; m = CONTROL_RE.exec(text)) {
+    if (m.index > last) current().push({ t: "text", text: text.slice(last, m.index) });
+    last = m.index + m[0].length;
+
+    const [, tag, field, value] = m;
+    if (tag === "#if" || tag === "#unless" || tag === "#eq") {
+      const node: Extract<TplNode, { t: "block" }> = {
+        t: "block",
+        kind: tag === "#if" ? "if" : tag === "#unless" ? "unless" : "eq",
+        field: field ?? "",
+        value,
+        cons: [],
+        alt: [],
+      };
+      current().push(node);
+      stack.push({ node, inElse: false });
+    } else if (tag === "else") {
+      if (stack.length > 0) stack[stack.length - 1].inElse = true;
+    } else {
+      // cierre: /if, /unless, /eq
+      if (stack.length > 0) stack.pop();
+    }
+  }
+  CONTROL_RE.lastIndex = 0;
+  if (last < text.length) current().push({ t: "text", text: text.slice(last) });
+  return root;
+}
+
+function evalInline(node: Extract<TplNode, { t: "block" }>, answers: Answers): boolean {
+  const raw = answers[node.field];
+  if (node.kind === "if") return Boolean(raw);
+  if (node.kind === "unless") return !raw;
+  return String(raw ?? "") === (node.value ?? "");
+}
+
+function renderNodes(
+  nodes: TplNode[],
+  answers: Answers,
+  fieldTypes: Record<string, FieldType>,
+): string {
+  let out = "";
+  for (const node of nodes) {
+    if (node.t === "text") {
+      out += substitutePlaceholders(node.text, answers, fieldTypes);
+    } else {
+      const branch = evalInline(node, answers) ? node.cons : node.alt;
+      out += renderNodes(branch, answers, fieldTypes);
+    }
+  }
+  return out;
+}
+
+/**
+ * Renderiza el texto de una cláusula: primero resuelve los condicionales inline
+ * ({{#if}}, {{#eq}}, {{else}}…) y luego sustituye los placeholders {{campo}}.
+ */
+export function renderTemplate(
+  text: string,
+  answers: Answers,
+  fieldTypes: Record<string, FieldType>,
+): string {
+  // Atajo: si no hay controles, evita el parser.
+  if (!text.includes("{{#")) return substitutePlaceholders(text, answers, fieldTypes);
+  return renderNodes(parseTemplate(text), answers, fieldTypes);
 }
 
 // ── 3. Ensamblado del documento ───────────────────────────────────────────
@@ -126,6 +219,21 @@ export function fieldTypeMap(
 }
 
 /**
+ * Ordinales en palabras para la numeración automática de cláusulas. El token
+ * `{{ORD}}` en un encabezado se reemplaza por el ordinal correlativo de las
+ * cláusulas efectivamente incluidas, para que no queden saltos aunque se
+ * omitan cláusulas condicionales.
+ */
+const ORDINALES = [
+  "PRIMERO", "SEGUNDO", "TERCERO", "CUARTO", "QUINTO", "SEXTO", "SÉPTIMO",
+  "OCTAVO", "NOVENO", "DÉCIMO", "UNDÉCIMO", "DUODÉCIMO", "DECIMOTERCERO",
+  "DECIMOCUARTO", "DECIMOQUINTO", "DECIMOSEXTO", "DECIMOSÉPTIMO", "DECIMOCTAVO",
+  "DECIMONOVENO", "VIGÉSIMO", "VIGÉSIMO PRIMERO", "VIGÉSIMO SEGUNDO",
+  "VIGÉSIMO TERCERO", "VIGÉSIMO CUARTO", "VIGÉSIMO QUINTO", "VIGÉSIMO SEXTO",
+  "VIGÉSIMO SÉPTIMO", "VIGÉSIMO OCTAVO", "VIGÉSIMO NOVENO", "TRIGÉSIMO",
+];
+
+/**
  * Devuelve las cláusulas que corresponden según las respuestas (aplicando
  * condiciones) con sus placeholders ya reemplazados. Este es el documento
  * que ve tanto la vista previa como la exportación a .docx/.pdf.
@@ -135,15 +243,61 @@ export function assembleContract(
   answers: Answers,
 ): RenderedClause[] {
   const types = fieldTypeMap(contract);
+  let ord = 0;
 
   return contract.clauses
     .filter((clause: ClauseBlock) =>
       clause.condition ? evalCondition(clause.condition, answers) : true,
     )
-    .map((clause) => ({
-      id: clause.id,
-      heading: renderTemplate(clause.heading, answers, types),
-      text: renderTemplate(clause.text, answers, types),
+    .map((clause) => {
+      let heading = clause.heading;
+      if (heading.includes("{{ORD}}")) {
+        const word = ORDINALES[ord] ?? `CLÁUSULA ${ord + 1}`;
+        ord += 1;
+        heading = heading.replace("{{ORD}}", word);
+      }
+      return {
+        id: clause.id,
+        heading: renderTemplate(heading, answers, types),
+        text: renderTemplate(clause.text, answers, types),
+      };
+    });
+}
+
+// ── 3-bis. Visibilidad condicional de campos y reglas duras ───────────────
+
+/** ¿Debe mostrarse (y validarse) este campo según las respuestas actuales? */
+export function isFieldVisible(field: QuestionField, answers: Answers): boolean {
+  return field.visibleIf ? evalCondition(field.visibleIf, answers) : true;
+}
+
+/** Filtra los campos visibles de un paso según las respuestas. */
+export function visibleFields(
+  fields: QuestionField[],
+  answers: Answers,
+): QuestionField[] {
+  return fields.filter((f) => isFieldVisible(f, answers));
+}
+
+export interface HardRuleViolation {
+  id: string;
+  title: string;
+  message: string;
+  legalBasis: string;
+}
+
+/** Devuelve las reglas duras que la configuración actual infringe (bloquean). */
+export function checkHardRules(
+  contract: Pick<ContractType, "hardRules">,
+  answers: Answers,
+): HardRuleViolation[] {
+  return (contract.hardRules ?? [])
+    .filter((r) => evalCondition(r.violatedWhen, answers))
+    .map((r) => ({
+      id: r.id,
+      title: r.title,
+      message: r.message,
+      legalBasis: r.legalBasis,
     }));
 }
 
@@ -258,13 +412,34 @@ export function validateField(
   return result.error.issues[0]?.message ?? "Valor inválido";
 }
 
-/** Valida todos los campos de un paso del wizard. Devuelve errores por campo. */
+/**
+ * Valida los campos de un paso del wizard. Ignora los campos ocultos por
+ * `visibleIf` (no se exigen datos que no aplican). Devuelve errores por campo.
+ */
 export function validateStep(
   fields: QuestionField[],
   answers: Answers,
 ): Record<string, string> {
   const errors: Record<string, string> = {};
   for (const field of fields) {
+    if (!isFieldVisible(field, answers)) continue;
+    const error = validateField(field, answers[field.name]);
+    if (error) errors[field.name] = error;
+  }
+  return errors;
+}
+
+/**
+ * Valida TODAS las respuestas de un contrato respetando la visibilidad
+ * condicional. Se usa en el servidor antes de generar el documento.
+ */
+export function validateAnswers(
+  contract: Pick<ContractType, "steps">,
+  answers: Answers,
+): Record<string, string> {
+  const errors: Record<string, string> = {};
+  for (const field of allFields(contract)) {
+    if (!isFieldVisible(field, answers)) continue;
     const error = validateField(field, answers[field.name]);
     if (error) errors[field.name] = error;
   }

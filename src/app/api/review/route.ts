@@ -115,7 +115,19 @@ export async function POST(request: Request) {
   }
 
   // ── 2. Clasificación (Paso 1) ────────────────────────────────────────
-  const classification = await classifyContract(text);
+  let classification;
+  try {
+    classification = await classifyContract(text);
+  } catch (err) {
+    if (err instanceof AiError) {
+      console.error("[review] Falló la clasificación:", err.code, err.message);
+      return NextResponse.json(
+        { error: err.message, code: err.code },
+        { status: err.code === "NOT_CONFIGURED" ? 503 : 502 },
+      );
+    }
+    throw err;
+  }
 
   // ── 3. Resumen gratuito ──────────────────────────────────────────────
   let summary;
@@ -123,6 +135,7 @@ export async function POST(request: Request) {
     summary = await buildFreeSummary(text, classification.tipo_contrato);
   } catch (err) {
     if (err instanceof AiError) {
+      console.error("[review] Falló el resumen:", err.code, err.message);
       return NextResponse.json(
         { error: err.message, code: err.code },
         { status: err.code === "NOT_CONFIGURED" ? 503 : 502 },
@@ -132,21 +145,36 @@ export async function POST(request: Request) {
   }
 
   // ── 4. Persistencia ──────────────────────────────────────────────────
-  const operation = await db.operation.create({
-    data: {
-      kind: OperationKind.REVIEW,
-      // La categoría del clasificador se guarda en detectedType.
-      detectedType: classification.tipo_contrato,
-      status: OperationStatus.PREVIEW,
-      sourceText: text,
-      sourceFilename,
-      perspective: perspectiva,
-      industria,
-      notas,
-      freeSummary: JSON.stringify(summary),
-      amountClp: REVIEW_PRICE_CLP,
-    },
-  });
+  let operation;
+  try {
+    operation = await db.operation.create({
+      data: {
+        kind: OperationKind.REVIEW,
+        // La categoría del clasificador se guarda en detectedType.
+        detectedType: classification.tipo_contrato,
+        status: OperationStatus.PREVIEW,
+        sourceText: text,
+        sourceFilename,
+        perspective: perspectiva,
+        industria,
+        notas,
+        freeSummary: JSON.stringify(summary),
+        amountClp: REVIEW_PRICE_CLP,
+      },
+    });
+  } catch (err) {
+    // Falla típica en producción: la base (Supabase) no está accesible o la
+    // URL de conexión quedó mal en el hosting.
+    console.error("[review] Falló al guardar la operación en la base:", err);
+    return NextResponse.json(
+      {
+        error:
+          "No pudimos guardar el análisis. Hay un problema con la base de datos; inténtalo nuevamente en un momento.",
+        code: "DB_ERROR",
+      },
+      { status: 503 },
+    );
+  }
 
   return NextResponse.json(
     {

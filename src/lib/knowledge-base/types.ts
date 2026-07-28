@@ -208,6 +208,13 @@ export interface ContractType {
    */
   designGuarantees?: string[];
 
+  /**
+   * Parámetros del contrato (tasas, valores) inyectados al renderizar como
+   * placeholders `{{param_...}}`. Centralizan lo que cambia por ley o por año
+   * (p.ej. la retención de segunda categoría) para no escribirlo en el texto.
+   */
+  params?: Record<string, string | number>;
+
   /** Reglas de riesgo aplicadas por el revisor. */
   riskRules: RiskRule[];
 }
@@ -217,7 +224,10 @@ export interface ContractType {
  * wizard del cliente reciba solo cuestionario y cláusulas, sin las reglas de
  * riesgo (que son propias del módulo revisor).
  */
-export type AssemblableContract = Pick<ContractType, "steps" | "clauses">;
+export type AssemblableContract = Pick<
+  ContractType,
+  "steps" | "clauses" | "params"
+>;
 
 /** Devuelve todos los campos de un contrato, aplanando los pasos del wizard. */
 export function allFields(contract: Pick<ContractType, "steps">): QuestionField[] {

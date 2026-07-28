@@ -100,27 +100,61 @@ const samples: Record<string, Answers> = {
     firma_ejemplares: 3,
   },
   "prestacion-servicios": {
+    contrato_ciudad: "Santiago",
+    contrato_fecha: "2026-08-15",
+    prestador_naturaleza: "persona_natural",
     prestador_nombre: "Camila Rojas Vega",
-    prestador_rut: "15.678.901-1",
-    prestador_domicilio: "Calle Manuel Montt 234, Providencia, Santiago",
+    prestador_nacionalidad: "chilena",
     prestador_profesion: "Diseñadora gráfica",
-    cliente_nombre: "Comercializadora Andes SpA",
+    prestador_rut: "15.678.901-1",
+    prestador_domicilio: "Calle Manuel Montt 234",
+    prestador_comuna: "Providencia",
+    prestador_email: "camila@correo.cl",
+    prestador_no_exclusivo: true,
+    cliente_naturaleza: "juridica",
+    cliente_razon_social: "Comercializadora Andes SpA",
+    cliente_giro: "comercio",
+    cliente_rep_nombre: "Pedro Ruiz",
+    cliente_rep_rut: "12.345.678-5",
     cliente_rut: "76.123.456-0",
-    cliente_domicilio: "Av. Apoquindo 5500, of 802, Las Condes, Santiago",
-    servicios_descripcion:
+    cliente_domicilio: "Av. Apoquindo 5500, of 802",
+    cliente_comuna: "Las Condes",
+    cliente_email: "contacto@andes.cl",
+    cliente_contraparte_nombre: "Laura Vidal",
+    cliente_contraparte_cargo: "Jefa de Marketing",
+    proyecto_titulo: "Diseño de identidad de marca",
+    proyecto_necesidad: "renovar su imagen corporativa para el relanzamiento de la marca.",
+    proyecto_descripcion:
       "Diseño de identidad visual: logotipo, paleta de colores y manual de marca, en dos rondas de revisión.",
-    entregables: "Archivos en formato .ai, .png y .pdf; manual de marca en PDF.",
-    lugar_prestacion: "remoto",
-    modalidad_pago: "por_proyecto",
-    honorario_monto: 1200000,
-    emite_boleta: true,
-    fecha_inicio: "2026-08-15",
-    tiene_plazo_fijo: true,
-    fecha_termino: "2026-10-15",
-    preaviso_dias: 30,
-    incluye_confidencialidad: true,
-    incluye_propiedad_intelectual: true,
-    exige_exclusividad: false,
+    proyecto_entregables: "Archivos en formato .ai, .png y .pdf; manual de marca en PDF.",
+    plazo_modalidad: "definido",
+    plazo_inicio: "2026-08-15",
+    plazo_termino: "2026-10-15",
+    plazo_renovable: false,
+    honorarios_modalidad: "por_hito",
+    honorarios_moneda: "CLP",
+    honorarios_monto_clp: 1200000,
+    honorarios_hitos: "40% al aprobar la propuesta; 60% contra la entrega final.",
+    honorarios_plazo_pago_dias: 30,
+    honorarios_reajuste: false,
+    pi_genera_obra: true,
+    pi_variante: "cesion_encargo",
+    confidencialidad_plazo_anios: 3,
+    datos_hay_tratamiento: false,
+    subcontratacion_prohibida: true,
+    no_solicitacion_aplica: true,
+    no_solicitacion_meses: 12,
+    obligaciones_variante: "neutra",
+    obligaciones_plazo_observacion: 10,
+    obligaciones_plazo_subsanacion: 10,
+    responsabilidad_variante: "neutra",
+    termino_variante: "neutra",
+    termino_aviso: 30,
+    termino_plazo_subsanacion: 15,
+    jurisdiccion_es_arbitraje: false,
+    jurisdiccion_comuna: "Santiago",
+    firma_modalidad: "simple",
+    firma_ejemplares: 2,
   },
 };
 
@@ -172,8 +206,12 @@ for (const contract of contractTypes) {
   }
   if (contract.id === "prestacion-servicios") {
     check(ids.has("confidencialidad"), "cláusula de confidencialidad incluida");
-    check(!ids.has("exclusividad"), "cláusula de exclusividad OMITIDA (exige_exclusividad = no)");
-    check(ids.has("plazo-fijo"), "cláusula de plazo de término incluida (tiene_plazo_fijo = sí)");
+    check(ids.has("propiedad-intelectual"), "cláusula de PI incluida (genera obra = sí)");
+    check(!ids.has("datos"), "cláusula de datos OMITIDA (sin tratamiento)");
+    check(ids.has("no-solicitacion"), "cláusula de no solicitación incluida");
+    const full = clauses.map((c) => `${c.heading}\n${c.text}`).join("\n");
+    check(full.includes("15,25%"), "retención tributaria desde params (persona natural)");
+    check(full.includes("Anexo D"), "Anexo D de cesión (PI no es licencia)");
   }
 
   // 4. Sin placeholders huérfanos

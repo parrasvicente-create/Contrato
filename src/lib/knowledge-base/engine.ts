@@ -243,11 +243,14 @@ export function assembleContract(
   answers: Answers,
 ): RenderedClause[] {
   const types = fieldTypeMap(contract);
+  // Los parámetros del contrato (tasas, valores) se exponen como placeholders
+  // {{param_...}}; las respuestas del usuario tienen prioridad ante colisiones.
+  const merged: Answers = { ...(contract.params ?? {}), ...answers };
   let ord = 0;
 
   return contract.clauses
     .filter((clause: ClauseBlock) =>
-      clause.condition ? evalCondition(clause.condition, answers) : true,
+      clause.condition ? evalCondition(clause.condition, merged) : true,
     )
     .map((clause) => {
       let heading = clause.heading;
@@ -258,8 +261,8 @@ export function assembleContract(
       }
       return {
         id: clause.id,
-        heading: renderTemplate(heading, answers, types),
-        text: renderTemplate(clause.text, answers, types),
+        heading: renderTemplate(heading, merged, types),
+        text: renderTemplate(clause.text, merged, types),
       };
     });
 }

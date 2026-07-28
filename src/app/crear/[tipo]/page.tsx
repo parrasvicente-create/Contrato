@@ -22,6 +22,7 @@ export default function WizardPage({ params }: { params: { tipo: string } }) {
     generationPriceClp: contract.generationPriceClp,
     steps: contract.steps,
     clauses: contract.clauses,
+    params: contract.params,
     hardRules: contract.hardRules,
     designGuarantees: contract.designGuarantees,
   };

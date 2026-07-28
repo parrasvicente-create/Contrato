@@ -24,6 +24,7 @@ export type WizardContract = Pick<
   | "generationPriceClp"
   | "steps"
   | "clauses"
+  | "params"
   | "hardRules"
   | "designGuarantees"
 >;

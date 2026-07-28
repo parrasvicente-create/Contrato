@@ -891,7 +891,68 @@ export const arriendoVivienda: ContractType = {
       ],
     },
 
-    // 12. Entrega ─────────────────────────────────────────────────────────────
+    // 12. Equilibrio de las cláusulas clave ──────────────────────────────────
+    // Estas 4 cláusulas concentran la mayoría de los conflictos. Por defecto
+    // van equilibradas; el usuario puede inclinarlas si lo desea.
+    {
+      id: "equilibrio",
+      title: "Tono del contrato",
+      description:
+        "Estas cuatro cláusulas son las que más se negocian. Por defecto van equilibradas; ajústalas solo si quieres.",
+      fields: [
+        {
+          name: "garantia_variante",
+          label: "Devolución de la garantía",
+          type: "select",
+          defaultValue: "neutra",
+          help: "Quién decide los descuentos y con qué respaldo.",
+          options: [
+            { value: "neutra", label: "Equilibrada (recomendada)" },
+            { value: "pro_arrendador", label: "Más favorable al arrendador" },
+            { value: "pro_arrendatario", label: "Más favorable al arrendatario" },
+          ],
+          visibleIf: { field: "garantia_aplica", op: "truthy" },
+        },
+        {
+          name: "reparaciones_variante",
+          label: "Reparaciones",
+          type: "select",
+          defaultValue: "neutra",
+          help: "Qué tan amplio es lo que paga el arrendatario.",
+          options: [
+            { value: "neutra", label: "Equilibrada (recomendada)" },
+            { value: "pro_arrendador", label: "Más favorable al arrendador" },
+            { value: "pro_arrendatario", label: "Más favorable al arrendatario" },
+          ],
+        },
+        {
+          name: "terminacion_variante",
+          label: "Término anticipado",
+          type: "select",
+          defaultValue: "neutra",
+          help: "Multa por salir antes vs. solo preaviso.",
+          options: [
+            { value: "neutra", label: "Equilibrada (recomendada)" },
+            { value: "pro_arrendador", label: "Más favorable al arrendador" },
+            { value: "pro_arrendatario", label: "Más favorable al arrendatario" },
+          ],
+        },
+        {
+          name: "restitucion_variante",
+          label: "Atraso en la restitución",
+          type: "select",
+          defaultValue: "neutra",
+          help: "Recargo por cada día que se atrase en devolver el inmueble.",
+          options: [
+            { value: "neutra", label: "Equilibrada (recomendada)" },
+            { value: "pro_arrendador", label: "Más favorable al arrendador" },
+            { value: "pro_arrendatario", label: "Más favorable al arrendatario" },
+          ],
+        },
+      ],
+    },
+
+    // 13. Entrega ─────────────────────────────────────────────────────────────
     {
       id: "entrega",
       title: "Entrega",
@@ -921,7 +982,7 @@ export const arriendoVivienda: ContractType = {
       ],
     },
 
-    // 13. Firma ───────────────────────────────────────────────────────────────
+    // 14. Firma ───────────────────────────────────────────────────────────────
     {
       id: "firma",
       title: "Firma",
@@ -996,7 +1057,7 @@ export const arriendoVivienda: ContractType = {
       id: "garantia",
       heading: "{{ORD}}: GARANTÍA",
       condition: { field: "garantia_aplica", op: "truthy" },
-      text: "El Arrendatario entrega en este acto al Arrendador, quien declara recibirla conforme, una garantía equivalente a {{garantia_rentas}} mes(es) de renta, en garantía del fiel cumplimiento de las obligaciones de este contrato. Esta garantía no constituye renta anticipada y no podrá imputarse al pago de la renta de ningún período, incluido el último. Será restituida al Arrendatario, debidamente reajustada, dentro de los {{garantia_plazo_restitucion_dias}} días siguientes a la restitución material del inmueble, previa deducción de las sumas que el Arrendatario adeudare por rentas, gastos comunes, consumos o reparación de deterioros que no provengan del uso legítimo. Toda deducción deberá comunicarse por escrito, acompañando los documentos que la justifiquen.",
+      text: "El Arrendatario entrega en este acto al Arrendador, quien declara recibirla conforme, una garantía equivalente a {{garantia_rentas}} mes(es) de renta, en garantía del fiel cumplimiento de las obligaciones de este contrato. Esta garantía no constituye renta anticipada y no podrá imputarse al pago de la renta de ningún período, incluido el último. {{#eq garantia_variante \"pro_arrendador\"}}Será restituida al Arrendatario dentro de los {{garantia_plazo_restitucion_dias}} días siguientes a la restitución material del inmueble, una vez que el Arrendador verifique el estado de conservación y se acredite el pago íntegro de rentas, gastos comunes y consumos devengados. El Arrendador queda facultado para imputar a la garantía el valor de las reparaciones, deterioros y sumas impagas, sin perjuicio de perseguir el saldo insoluto.{{else}}{{#eq garantia_variante \"pro_arrendatario\"}}Será restituida al Arrendatario, debidamente reajustada, dentro de los {{garantia_plazo_restitucion_dias}} días siguientes a la restitución material. Solo podrán deducirse sumas efectivamente adeudadas o el costo de reparaciones que consten en presupuesto o boleta de un tercero, previamente comunicados al Arrendatario, quien podrá objetarlos dentro de quinto día. Transcurrido el plazo sin restitución ni objeción fundada, el Arrendador deberá restituirla íntegramente.{{else}}Será restituida al Arrendatario, debidamente reajustada, dentro de los {{garantia_plazo_restitucion_dias}} días siguientes a la restitución material del inmueble, previa deducción de las sumas que el Arrendatario adeudare por rentas, gastos comunes, consumos o reparación de deterioros que no provengan del uso legítimo. Toda deducción deberá comunicarse por escrito, acompañando los documentos que la justifiquen.{{/eq}}{{/eq}}",
     },
     {
       id: "gastos",
@@ -1011,7 +1072,7 @@ export const arriendoVivienda: ContractType = {
     {
       id: "reparaciones",
       heading: "{{ORD}}: CONSERVACIÓN Y REPARACIONES",
-      text: "Serán de cargo del Arrendatario las reparaciones locativas, en los términos del artículo 1940 del Código Civil, y de cargo del Arrendador las reparaciones necesarias no locativas, conforme al artículo 1927 del mismo Código, incluyendo las que afecten la estructura, techumbre y matrices de agua, gas y electricidad. El Arrendatario deberá informar al Arrendador, dentro de los cinco días siguientes, de todo desperfecto que requiera reparación de cargo de este último; la omisión del aviso lo hará responsable de los mayores daños que ello ocasione.",
+      text: "{{#eq reparaciones_variante \"pro_arrendador\"}}Serán de cargo del Arrendatario todas las reparaciones locativas, entendiéndose por tales las que subsanen los deterioros que ordinariamente se producen por culpa del arrendatario o de sus dependientes, así como el mantenimiento periódico de artefactos, grifería, calefont, sistemas de calefacción, cerraduras y persianas. Las reparaciones estructurales serán de cargo del Arrendador.{{else}}{{#eq reparaciones_variante \"pro_arrendatario\"}}Serán de cargo del Arrendatario únicamente las reparaciones locativas derivadas de su culpa o la de sus dependientes, excluyéndose el desgaste natural por el uso legítimo y el deterioro por caso fortuito o fuerza mayor. Todas las demás reparaciones serán de cargo del Arrendador, quien deberá ejecutarlas dentro de un plazo razonable desde el aviso del Arrendatario; transcurrido este sin ejecutarse, el Arrendatario podrá realizarlas por cuenta del Arrendador, imputando su valor documentado a las rentas siguientes.{{else}}Serán de cargo del Arrendatario las reparaciones locativas, en los términos del artículo 1940 del Código Civil, y de cargo del Arrendador las reparaciones necesarias no locativas, conforme al artículo 1927 del mismo Código, incluyendo las que afecten la estructura, techumbre y matrices de agua, gas y electricidad. El Arrendatario deberá informar al Arrendador, dentro de los cinco días siguientes, de todo desperfecto que requiera reparación de cargo de este último; la omisión del aviso lo hará responsable de los mayores daños que ello ocasione.{{/eq}}{{/eq}}",
     },
     {
       id: "mejoras",
@@ -1037,12 +1098,12 @@ export const arriendoVivienda: ContractType = {
     {
       id: "terminacion",
       heading: "{{ORD}}: TERMINACIÓN ANTICIPADA",
-      text: "El Arrendatario podrá poner término anticipado al contrato dando aviso al Arrendador con a lo menos {{terminacion_aviso_previo_dias}} días de anticipación, mediante carta certificada o correo electrónico, y pagando a título de cláusula penal una suma equivalente a {{terminacion_multa_rentas}} renta(s) de arrendamiento. Lo anterior es sin perjuicio de las rentas y gastos devengados e impagos hasta la restitución material del inmueble.",
+      text: "{{#eq terminacion_variante \"pro_arrendador\"}}El Arrendatario no podrá poner término anticipado al contrato. Si lo hiciere, deberá pagar al Arrendador, a título de cláusula penal, una suma equivalente a {{terminacion_multa_rentas}} renta(s) de arrendamiento, sin perjuicio de las rentas devengadas e impagas hasta la restitución material del inmueble.{{else}}{{#eq terminacion_variante \"pro_arrendatario\"}}El Arrendatario podrá poner término anticipado al contrato en cualquier momento, dando aviso al Arrendador con a lo menos {{terminacion_aviso_previo_dias}} días de anticipación, sin obligación de pagar indemnización ni multa alguna, con la sola obligación de pagar las rentas y gastos devengados hasta la restitución material del inmueble.{{else}}El Arrendatario podrá poner término anticipado al contrato dando aviso al Arrendador con a lo menos {{terminacion_aviso_previo_dias}} días de anticipación, mediante carta certificada o correo electrónico, y pagando a título de cláusula penal una suma equivalente a {{terminacion_multa_rentas}} renta(s) de arrendamiento. Lo anterior es sin perjuicio de las rentas y gastos devengados e impagos hasta la restitución material del inmueble.{{/eq}}{{/eq}}",
     },
     {
       id: "restitucion",
       heading: "{{ORD}}: RESTITUCIÓN",
-      text: "Llegado el término del contrato por cualquier causa, el Arrendatario deberá restituir el inmueble desocupado, libre de todo ocupante y de sus bienes, con todas sus llaves y acreditando el pago íntegro de las rentas, gastos comunes y consumos de su cargo. Si no lo restituyere oportunamente, deberá pagar al Arrendador, por cada día de atraso, una suma equivalente a la renta diaria vigente aumentada en un {{restitucion_recargo_pct}}%, a título de cláusula penal, sin perjuicio de las acciones legales que correspondan. La restitución se obtendrá siempre por la vía judicial; el Arrendador no podrá recurrir a medios de autotutela.",
+      text: "Llegado el término del contrato por cualquier causa, el Arrendatario deberá restituir el inmueble desocupado, libre de todo ocupante y de sus bienes, con todas sus llaves y acreditando el pago íntegro de las rentas, gastos comunes y consumos de su cargo. {{#eq restitucion_variante \"pro_arrendador\"}}Si no lo restituyere oportunamente, deberá pagar al Arrendador, por cada día de atraso, una suma equivalente a la renta diaria vigente aumentada en un {{restitucion_recargo_pct}}%, a título de cláusula penal, sin perjuicio del derecho del Arrendador a exigir la restitución judicial y a ser indemnizado de todo otro perjuicio.{{else}}{{#eq restitucion_variante \"pro_arrendatario\"}}Si no lo restituyere oportunamente, continuará devengándose la renta diaria vigente hasta la restitución material, sin recargo adicional, sin perjuicio del derecho del Arrendador a exigir judicialmente la restitución.{{else}}Si no lo restituyere oportunamente, deberá pagar al Arrendador, por cada día de atraso, una suma equivalente a la renta diaria vigente aumentada en un {{restitucion_recargo_pct}}%, a título de cláusula penal, sin perjuicio de las acciones legales que correspondan.{{/eq}}{{/eq}} La restitución se obtendrá siempre por la vía judicial; el Arrendador no podrá recurrir a medios de autotutela.",
     },
     {
       id: "notificaciones",

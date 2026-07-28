@@ -1,5 +1,6 @@
 import type { ContractType } from "./types";
 import { arriendoVivienda } from "./contracts/arriendo-vivienda";
+import { arriendoComercial } from "./contracts/arriendo-comercial";
 import { prestacionServicios } from "./contracts/prestacion-servicios";
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -13,6 +14,7 @@ import { prestacionServicios } from "./contracts/prestacion-servicios";
 
 export const contractTypes: ContractType[] = [
   arriendoVivienda,
+  arriendoComercial,
   prestacionServicios,
 ];
 

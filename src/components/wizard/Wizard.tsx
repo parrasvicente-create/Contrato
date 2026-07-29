@@ -87,6 +87,34 @@ export function Wizard({ contract }: WizardProps) {
     [contract, answers],
   );
 
+  // Cláusulas que toca el paso actual: se resaltan en la vista previa para que
+  // el usuario vea, en vivo, qué parte del documento está completando.
+  const activeClauseIds = useMemo(() => {
+    const ids = new Set<string>();
+    if (!currentStep) return ids;
+    const names = currentStep.fields.map((f) => f.name);
+    for (const clause of contract.clauses) {
+      const haystack = `${clause.heading} ${clause.text} ${JSON.stringify(
+        clause.condition ?? "",
+      )}`;
+      if (names.some((n) => haystack.includes(n))) ids.add(clause.id);
+    }
+    return ids;
+  }, [currentStep, contract.clauses]);
+
+  // La primera cláusula activa (en orden del documento), para desplazarnos a ella.
+  const activeFirstId = useMemo(() => {
+    const inDoc = clauses.find((c) => activeClauseIds.has(c.id));
+    return inDoc?.id ?? null;
+  }, [clauses, activeClauseIds]);
+
+  // Al cambiar de paso, desplazamos la vista previa a la primera cláusula activa.
+  useEffect(() => {
+    if (!activeFirstId) return;
+    const el = document.getElementById(`preview-clause-${activeFirstId}`);
+    el?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [activeFirstId]);
+
   // ── Autoguardado: restaurar borrador al abrir ──────────────────────────
   useEffect(() => {
     try {
@@ -239,7 +267,7 @@ export function Wizard({ contract }: WizardProps) {
   ];
 
   return (
-    <div className="lg:grid lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] lg:items-start lg:gap-8 xl:gap-12">
+    <div className="lg:grid lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] lg:items-start lg:gap-8 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] xl:gap-12">
       {/* ── Columna: formulario (más ancha) ─────────────────────────────── */}
       <div className="space-y-6">
         {/* Progreso: índice de pasos clicable + barra */}
@@ -303,6 +331,15 @@ export function Wizard({ contract }: WizardProps) {
             {currentStep.description && (
               <p className="mt-1.5 text-sm leading-relaxed text-tinta-600">
                 {currentStep.description}
+              </p>
+            )}
+            {activeClauseIds.size > 0 && (
+              <p className="mt-2 hidden items-center gap-1.5 text-xs font-medium text-dorado-700 lg:flex">
+                <span aria-hidden>→</span>
+                Define {activeClauseIds.size}{" "}
+                {activeClauseIds.size === 1 ? "apartado" : "apartados"} del
+                contrato, resaltado{activeClauseIds.size === 1 ? "" : "s"} a la
+                derecha.
               </p>
             )}
             <div ref={fieldsRef} className="mt-6 grid gap-5 sm:grid-cols-2">
@@ -401,7 +438,11 @@ export function Wizard({ contract }: WizardProps) {
             </span>
           </summary>
           <div className="border-t border-tinta-100 p-3">
-            <ContractPreview title={contract.name} clauses={clauses} />
+            <ContractPreview
+              title={contract.name}
+              clauses={clauses}
+              highlightIds={activeClauseIds}
+            />
           </div>
         </details>
 
@@ -449,14 +490,23 @@ export function Wizard({ contract }: WizardProps) {
           <p className="versalita text-dorado-600">Vista previa en vivo</p>
           <p className="text-xs text-tinta-400">Se actualiza al escribir</p>
         </div>
-        <p className="mb-3 text-xs text-tinta-500">
+        <p className="mb-3 text-xs leading-relaxed text-tinta-500">
           Lo marcado como{" "}
           <span className="rounded-sm bg-dorado-100 px-1 text-dorado-700">
             por completar
           </span>{" "}
-          se rellena con tus respuestas.
+          se rellena con tus respuestas. Mientras completas un paso, se{" "}
+          <span className="rounded-sm bg-dorado-50 px-1 ring-1 ring-dorado-300">
+            resaltan
+          </span>{" "}
+          las cláusulas que estás afectando.
         </p>
-        <ContractPreview title={contract.name} clauses={clauses} />
+        <ContractPreview
+          title={contract.name}
+          clauses={clauses}
+          highlightIds={activeClauseIds}
+          sectionIdPrefix="preview"
+        />
       </aside>
     </div>
   );

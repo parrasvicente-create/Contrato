@@ -16,6 +16,10 @@ interface ContractPreviewProps {
   clauses: RenderedClause[];
   /** Si es false, se muestra sin marca de agua (documento ya pagado). */
   watermark?: boolean;
+  /** IDs de cláusulas a resaltar (las que el paso actual está completando). */
+  highlightIds?: Set<string>;
+  /** Prefijo para dar id a cada sección (permite desplazarse a ella). */
+  sectionIdPrefix?: string;
 }
 
 /** Resalta los espacios pendientes (secuencias de guiones bajos). */
@@ -41,6 +45,8 @@ export function ContractPreview({
   title,
   clauses,
   watermark = true,
+  highlightIds,
+  sectionIdPrefix,
 }: ContractPreviewProps) {
   return (
     <div
@@ -56,21 +62,30 @@ export function ContractPreview({
       </header>
 
       <div className="space-y-5">
-        {clauses.map((clause) => (
-          <section key={clause.id}>
-            <h3 className="font-serif text-sm font-semibold text-tinta-800">
-              {renderWithBlanks(clause.heading, watermark)}
-            </h3>
-            {clause.text.split(/\n+/).map((paragraph, i) => (
-              <p
-                key={i}
-                className="mt-1.5 text-justify font-serif text-sm leading-7 text-tinta-700"
-              >
-                {renderWithBlanks(paragraph, watermark)}
-              </p>
-            ))}
-          </section>
-        ))}
+        {clauses.map((clause) => {
+          const active = highlightIds?.has(clause.id) ?? false;
+          return (
+            <section
+              key={clause.id}
+              id={sectionIdPrefix ? `${sectionIdPrefix}-clause-${clause.id}` : undefined}
+              className={`-mx-3 scroll-mt-6 rounded-md px-3 py-2 transition-colors duration-500 ${
+                active ? "bg-dorado-50 ring-1 ring-dorado-300" : "ring-1 ring-transparent"
+              }`}
+            >
+              <h3 className="font-serif text-sm font-semibold text-tinta-800">
+                {renderWithBlanks(clause.heading, watermark)}
+              </h3>
+              {clause.text.split(/\n+/).map((paragraph, i) => (
+                <p
+                  key={i}
+                  className="mt-1.5 text-justify font-serif text-sm leading-7 text-tinta-700"
+                >
+                  {renderWithBlanks(paragraph, watermark)}
+                </p>
+              ))}
+            </section>
+          );
+        })}
       </div>
 
       {/* Espacio de firmas, genérico: no depende del tipo de contrato. */}

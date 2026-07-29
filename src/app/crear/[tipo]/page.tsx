@@ -28,7 +28,10 @@ export default function WizardPage({ params }: { params: { tipo: string } }) {
   };
 
   return (
-    <div className="space-y-8">
+    // En pantallas grandes el wizard se ensancha más allá del contenedor base
+    // para dar más aire a la vista previa del contrato.
+    <div className="xl:mx-[calc(50%-50vw)] xl:flex xl:justify-center">
+      <div className="w-full space-y-8 xl:max-w-[88rem] xl:px-6">
       <header>
         <Link
           href="/crear"
@@ -47,6 +50,7 @@ export default function WizardPage({ params }: { params: { tipo: string } }) {
       <Wizard contract={wizardContract} />
 
       <Disclaimer />
+      </div>
     </div>
   );
 }
